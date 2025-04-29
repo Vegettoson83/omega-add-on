@@ -1,0 +1,18 @@
+{
+  "name": "omega-add-on",
+  "version": "1.0.0",
+  "description": "Omega Stremio add-on for multi-site scraping.",
+  "main": "addon.js",
+  "scripts": {
+    "start": "node addon.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "stremio-addon-sdk": "^1.0.0",
+    "puppeteer": "^21.3.8",
+    "mongodb": "^5.8.0",
+    "node-cron": "^3.1.3"
+  }
+}
