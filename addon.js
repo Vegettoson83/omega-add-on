@@ -5,7 +5,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const cron = require('node-cron');
 
 // MongoDB Connection
-const uri = "mongodb+srv://brucewill945:<db_password>@cluster0.94wexnp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = "mongodb+srv://brucewill945:7ZXQEoqgK0SUIaUG@cluster0.94wexnp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 // Create a MongoClient with a MongoClientOptions object
 const client = new MongoClient(uri, {
