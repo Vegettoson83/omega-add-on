@@ -7,13 +7,8 @@ const cron = require('node-cron');
 // MongoDB Connection
 const uri = "mongodb+srv://brucewill945:7ZXQEoqgK0SUIaUG@cluster0.94wexnp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-// Create a MongoClient with a MongoClientOptions object
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
 });
 
 // Initialize Database Connection
@@ -25,19 +20,15 @@ async function initializeDB() {
     console.log("Connected to MongoDB successfully!");
   } catch (err) {
     console.error("Error connecting to MongoDB:", err.message);
-    process.exit(1); // Exit if the database connection fails
+    process.exit(1);
   }
 }
-
-// Define Schema and Model Replacement
-// Since we are using MongoClient directly, we will use plain MongoDB queries instead of Mongoose models.
-const collectionName = "scraped_entries";
 
 // Express Server
 const app = express();
 app.use(express.json());
 
-// Dynamic Site List in Memory
+// Dynamic Site List
 let sitesToScrape = [];
 
 // Rotating User-Agent List
@@ -78,7 +69,6 @@ async function fetchPageData(url, browser) {
 
     await page.close();
     return data;
-
   } catch (err) {
     console.error(`Error scraping ${url}:`, err.message);
     await page.close();
@@ -102,7 +92,7 @@ async function scrapeSite(site, browser, visited = new Set()) {
 
   for (const videoUrl of videos) {
     const entryId = Buffer.from(videoUrl).toString('base64');
-    await db.collection(collectionName).updateOne(
+    await db.collection("scraped_entries").updateOne(
       { id: entryId, catalogId },
       { $set: { catalogId, id: entryId, name: title, description, poster: image, videoUrl } },
       { upsert: true }
@@ -128,22 +118,22 @@ async function refreshScraping() {
 }
 
 // Schedule Regular Scraping
-cron.schedule('0 */2 * * *', refreshScraping); // Every 2 hours
-refreshScraping(); // Run immediately on server start
+cron.schedule('0 */2 * * *', refreshScraping);
+refreshScraping();
 
-// Stremio Addon Builder
+// Stremio Addon Builder (Fix applied)
+const catalogs = sitesToScrape.map(site => ({
+  type: 'movie',
+  id: site.id,
+  name: `Movies from ${new URL(site.url).hostname}`,
+}));
+
 const builder = new addonBuilder({
   id: 'org.auto.multi-scraper',
   version: '1.0.0',
   name: 'Multi-Site Scraper',
   description: 'Auto-updating multi-site scraper for Stremio.',
-  catalogs: () => {
-    return sitesToScrape.map(site => ({
-      type: 'movie',
-      id: site.id,
-      name: `Movies from ${new URL(site.url).hostname}`,
-    }));
-  },
+  catalogs: catalogs, // ✅ Fixed, now a direct array
   resources: ['catalog', 'stream', 'meta'],
   types: ['movie'],
 });
@@ -151,7 +141,7 @@ const builder = new addonBuilder({
 // Stremio Handlers
 builder.defineCatalogHandler(async ({ id, extra }) => {
   const query = extra.search?.toLowerCase() || '';
-  const entries = await db.collection(collectionName).find({ catalogId: id }).toArray();
+  const entries = await db.collection("scraped_entries").find({ catalogId: id }).toArray();
 
   const filteredEntries = query
     ? entries.filter(entry => entry.name.toLowerCase().includes(query))
@@ -169,7 +159,7 @@ builder.defineCatalogHandler(async ({ id, extra }) => {
 });
 
 builder.defineStreamHandler(async ({ id }) => {
-  const entry = await db.collection(collectionName).findOne({ id });
+  const entry = await db.collection("scraped_entries").findOne({ id });
   if (entry) {
     return Promise.resolve({ streams: [{ url: entry.videoUrl }] });
   }
@@ -177,7 +167,7 @@ builder.defineStreamHandler(async ({ id }) => {
 });
 
 builder.defineMetaHandler(async ({ id }) => {
-  const entry = await db.collection(collectionName).findOne({ id });
+  const entry = await db.collection("scraped_entries").findOne({ id });
   if (entry) {
     return Promise.resolve({
       meta: {
@@ -206,7 +196,7 @@ app.post('/add-site', async (req, res) => {
 
   console.log(`Added new site: ${url} (Catalog ID: ${catalogId})`);
 
-  await refreshScraping(); // Trigger immediate scrape
+  await refreshScraping();
 
   res.send({ success: true, catalogId });
 });
@@ -214,6 +204,6 @@ app.post('/add-site', async (req, res) => {
 // Start Express Server
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, async () => {
-  await initializeDB(); // Initialize MongoDB connection
+  await initializeDB();
   console.log(`Scraper addon server running on port ${PORT}`);
 });
